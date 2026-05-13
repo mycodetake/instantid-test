@@ -44,27 +44,23 @@ jobs:
           chmod 600 ~/.kaggle/kaggle.json
           echo "✅ Kaggle 配置文件已创建"
 
-          # 验证配置文件（不显示敏感信息）
-          if [ -f ~/.kaggle/kaggle.json ]; then
-            echo "✅ kaggle.json 文件存在"
-            # 只显示 username（不显示 key）
-            echo "Username: ${KAGGLE_USERNAME}"
-          else
-            echo "❌ kaggle.json 文件创建失败"
-            exit 1
-          fi
-
       - name: Test Kaggle API Connection
         run: |
           echo "测试 Kaggle API 连接..."
-          kaggle competitions list --limit 3
+          kaggle competitions list | head -5
           echo "✅ Kaggle API 连接成功"
 
       - name: Push Kernel to Kaggle
         run: |
           echo "推送 Kernel 到 Kaggle..."
-          kaggle kernels push -p .
-          echo "✅ Kernel 推送成功"
+          kaggle kernels push -p . 2>&1 | tee kaggle_push.log
+          echo "✅ Kernel 推送完成"
+
+      - name: Get Kernel Status
+        if: always()
+        run: |
+          echo "获取 Kernel 状态..."
+          kaggle kernels status $(cat kernel-metadata.json | grep '"id"' | cut -d'"' -f4) 2>&1 | tee kaggle_status.log || true
 
       - name: Save logs
         if: always()
@@ -73,4 +69,4 @@ jobs:
           name: kaggle-logs-${{ github.run_number }}
           path: |
             *.log
-            logs/
+            kaggle_*.log

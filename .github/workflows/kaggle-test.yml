@@ -12,25 +12,65 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Kaggle credentials
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Kaggle CLI
+        run: |
+          pip install kaggle
+
+      - name: Verify Secrets are Available
+        run: |
+          echo "检查 Secrets 是否存在..."
+          if [ -z "${{ secrets.KAGGLE_USERNAME }}" ]; then
+            echo "❌ KAGGLE_USERNAME 未设置"
+            exit 1
+          fi
+          if [ -z "${{ secrets.KAGGLE_KEY }}" ]; then
+            echo "❌ KAGGLE_KEY 未设置"
+            exit 1
+          fi
+          echo "✅ Secrets 已正确设置"
+
+      - name: Setup Kaggle Credentials
         env:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           mkdir -p ~/.kaggle
-          echo "{\"username\":\"$KAGGLE_USERNAME\",\"key\":\"$KAGGLE_KEY\"}" > ~/.kaggle/kaggle.json
+          echo "{\"username\":\"${KAGGLE_USERNAME}\",\"key\":\"${KAGGLE_KEY}\"}" > ~/.kaggle/kaggle.json
           chmod 600 ~/.kaggle/kaggle.json
+          echo "✅ Kaggle 配置文件已创建"
 
-      - name: Run test on Kaggle
+          # 验证配置文件（不显示敏感信息）
+          if [ -f ~/.kaggle/kaggle.json ]; then
+            echo "✅ kaggle.json 文件存在"
+            # 只显示 username（不显示 key）
+            echo "Username: ${KAGGLE_USERNAME}"
+          else
+            echo "❌ kaggle.json 文件创建失败"
+            exit 1
+          fi
+
+      - name: Test Kaggle API Connection
         run: |
-          pip install kaggle
+          echo "测试 Kaggle API 连接..."
+          kaggle competitions list --limit 3
+          echo "✅ Kaggle API 连接成功"
+
+      - name: Push Kernel to Kaggle
+        run: |
+          echo "推送 Kernel 到 Kaggle..."
           kaggle kernels push -p .
+          echo "✅ Kernel 推送成功"
 
       - name: Save logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kaggle-logs
+          name: kaggle-logs-${{ github.run_number }}
           path: |
             *.log
             logs/
